@@ -81,6 +81,24 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
 
     function dependentObservable() {
         if (arguments.length > 0) {
+            if (arguments.length > 1) {
+                    var args = [];
+                    Array.prototype.push.apply(args, arguments);
+                    var method = args.pop();
+
+                    if (method == 'read' && typeof options['read'] === 'function') {
+                        //read with parameters                        
+                        if (options["owner"] === undefined) throw 'You need to supply a owner if you want to use read parameters';
+                        _latestValue = options["read"].apply(options["owner"], args);
+                        return _latestValue;
+                    } else if (method == 'write' && typeof options['write'] === 'function') {
+                        //write with multiple parameters
+                        if (options["owner"] === undefined) throw 'You need to supply a owner if you want to use multiple write parameters';
+                        options["write"].apply(options["owner"], args);
+                        return;
+                    }
+            }
+
             if (typeof options["write"] === "function") {
                 // Writing a value
                 var valueForThis = options["owner"]; // If undefined, it will default to "window" by convention. This might change in the future.
@@ -103,6 +121,21 @@ ko.dependentObservable = function (evaluatorFunctionOrOptions, evaluatorFunction
             ko.utils.domNodeDisposal.removeDisposeCallback(disposeWhenNodeIsRemoved, disposeWhenNodeIsRemovedCallback);
         disposeAllSubscriptionsToDependencies();
     };
+
+    dependentObservable.read = function() {
+        return this.callDependable('read', arguments);
+    };
+
+    dependentObservable.write = function() {
+        this.callDependable.apply('write', arguments);
+    };
+
+    dependentObservable.callDependable = function(method, args) {
+        var mergedArgs = [];
+        Array.prototype.push.apply(mergedArgs, args);
+        mergedArgs.push(method);
+        return this.apply(this, mergedArgs);
+    };        
     
     ko.subscribable.call(dependentObservable);
     ko.utils.extend(dependentObservable, ko.dependentObservable['fn']);
